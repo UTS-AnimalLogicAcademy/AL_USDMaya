@@ -106,7 +106,7 @@ MSelectionList selected;
 static void restoreSelection()
 {
   MGlobal::displayInfo("restoreSelection()");
-  // iterate through the list of items set by _saveSelected
+  // iterate through the list of items set by storeSelection()
   for( int i=0; i<selected.length(); ++i )
   {
     MObject obj;
@@ -115,9 +115,12 @@ static void restoreSelection()
     // Attach a function set to the selected object
     MFnDependencyNode fn(obj);
     // write the object name to the script editor
-    MGlobal::displayInfo( fn.name().asChar() );
-    // Select the object
-    MGlobal::selectByName(fn.name().asChar());
+    MGlobal::displayInfo( fn.name() );
+    MGlobal::displayInfo( fn.typeName() );
+    // Don't restore AL_usdmaya_Transforms
+    if (fn.typeName() != "AL_usdmaya_Transform"){
+      MGlobal::selectByName(fn.name().asChar());
+    }
   }
 }
 
@@ -316,6 +319,7 @@ static void postFileSave(void*)
   {
     AL_MAYA_CHECK_ERROR2(layerManager->clearSerialisationAttributes(), "postFileSave");
   }
+  // Restore selection cleared by _preFileSave()
   restoreSelection();
 }
 
