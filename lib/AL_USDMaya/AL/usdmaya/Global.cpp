@@ -119,17 +119,9 @@ static void restoreSelection()
     MFnDependencyNode fn(obj);
     //MFnDagNode fnDag(obj);
     // write the object name to the script editor
-    MGlobal::displayInfo( "---------------------------");
     MGlobal::displayInfo( fn.name() );
     MGlobal::displayInfo( fn.typeName() );
-    MGlobal::displayInfo( "~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     MGlobal::selectByName(fn.name().asChar());
-    // Don't restore AL_usdmaya_Transforms
-    /*
-    if (fn.typeName() != "AL_usdmaya_Transform"){
-      MGlobal::selectByName(fn.name().asChar());
-    }
-    */
   }
 }
 
@@ -139,6 +131,7 @@ static void storeSelection()
 
   //set "selected" to the current selection list
   MGlobal::getActiveSelectionList(selected);
+
   // Iterate through selection list, unselecting AL_usdmaya_Transforms
   for( int i=0; i<selected.length(); ++i )
   {
@@ -146,39 +139,28 @@ static void storeSelection()
     // returns the i'th selected dependency node
     selected.getDependNode(i,obj);
     // Attach a function set to the selected object
-    MFnDependencyNode fn2(obj);
+    MFnDependencyNode fnParent(obj);
 
-    // Don't restore AL_usdmaya_Transforms
-    MGlobal::displayInfo( "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    MGlobal::displayInfo( fn2.name() );
-    MGlobal::displayInfo( fn2.typeName() );
-    MGlobal::displayInfo( "?????????????????????????????");
-    if (fn2.typeName() == "AL_usdmaya_Transform")
+    // Remove if type is AL_usdmaya_Transform
+    if (fnParent.typeName() == "AL_usdmaya_Transform")
     {
-      MGlobal::displayInfo( "AL_usdmaya_Transform" );
-
-      // Unselect Parent if node is AL_usdmaya_Transform
-
-      // doesnt work if only parent is selected, should search childeren
-
-      MFnDagNode fn(obj);
-
-      // list each parent
-      for( int i=0; i!=fn.parentCount(); ++i ) {
-        // get a handle to the parent
-        MObject obj = fn.parent(i);
-        // attach a function set to the parent object
-        MFnDagNode fnParent(obj);
-        if (fnParent.typeName() == "transform")
-        {
-        MGlobal::unselectByName(fnParent.name().asChar());
-        }
-      }
-
-      MGlobal::unselectByName(fn2.name().asChar());
+      MGlobal::unselectByName(fnParent.name().asChar());
     }
 
+    MFnDagNode fnDagNode(obj);
+
+    // Unselect nodes which have AL_usdmaya_ProxyShape as childeren
+    for( int i=0; i!=fnDagNode.childCount(); ++i ) {
+      MObject obj = fnDagNode.child(i);
+      MFnDagNode fnChild(obj);
+      if (fnChild.typeName() == "AL_usdmaya_ProxyShape")
+      {
+        MGlobal::unselectByName(fnParent.name().asChar());
+        MGlobal::unselectByName(fnChild.name().asChar());
+      }
+    }
   }
+
   //Reset selection list to new list without AL-usdmaya_Transfroms
   MGlobal::getActiveSelectionList(selected);
 }
