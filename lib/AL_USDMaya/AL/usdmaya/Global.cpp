@@ -106,6 +106,40 @@ maya::CallbackId Global::m_fileNew;
 //class of MObjects
 MSelectionList selected;
 
+static void storeSelection()
+{
+  MGlobal::displayInfo("storeSelection()");
+  //set "selected" to the current selection list
+  MGlobal::getActiveSelectionList(selected);
+  // Iterate through selection list, unselecting AL_usdmaya_Transforms
+  for( int i=0; i<selected.length(); ++i )
+  {
+    MObject obj;
+    // returns the i'th selected dependency node
+    selected.getDependNode(i,obj);
+    // Attach a function set to the selected object
+    MFnDependencyNode fnParent(obj);
+    // Remove if type is AL_usdmaya_Transform
+    if (fnParent.typeName() == "AL_usdmaya_Transform")
+    {
+      MGlobal::unselectByName(fnParent.name().asChar());
+    }
+    MFnDagNode fnDagNode(obj);
+    // Unselect nodes which have AL_usdmaya_ProxyShape as a child
+    for( int i=0; i!=fnDagNode.childCount(); ++i ) {
+      MObject obj = fnDagNode.child(i);
+      MFnDagNode fnChild(obj);
+      if (fnChild.typeName() == "AL_usdmaya_ProxyShape")
+      {
+        MGlobal::unselectByName(fnParent.name().asChar());
+        MGlobal::unselectByName(fnChild.name().asChar());
+      }
+    }
+  }
+  //Reset selection list to new list without AL-usdmaya_Transfroms
+  MGlobal::getActiveSelectionList(selected);
+}
+
 static void restoreSelection()
 {
   MGlobal::displayInfo("restoreSelection()");
@@ -117,52 +151,11 @@ static void restoreSelection()
     selected.getDependNode(i,obj);
     // Attach a function set to the selected object
     MFnDependencyNode fn(obj);
-    //MFnDagNode fnDag(obj);
     // write the object name to the script editor
     MGlobal::displayInfo( fn.name() );
     MGlobal::displayInfo( fn.typeName() );
     MGlobal::selectByName(fn.name().asChar());
   }
-}
-
-static void storeSelection()
-{
-  MGlobal::displayInfo("storeSelection()");
-
-  //set "selected" to the current selection list
-  MGlobal::getActiveSelectionList(selected);
-
-  // Iterate through selection list, unselecting AL_usdmaya_Transforms
-  for( int i=0; i<selected.length(); ++i )
-  {
-    MObject obj;
-    // returns the i'th selected dependency node
-    selected.getDependNode(i,obj);
-    // Attach a function set to the selected object
-    MFnDependencyNode fnParent(obj);
-
-    // Remove if type is AL_usdmaya_Transform
-    if (fnParent.typeName() == "AL_usdmaya_Transform")
-    {
-      MGlobal::unselectByName(fnParent.name().asChar());
-    }
-
-    MFnDagNode fnDagNode(obj);
-
-    // Unselect nodes which have AL_usdmaya_ProxyShape as childeren
-    for( int i=0; i!=fnDagNode.childCount(); ++i ) {
-      MObject obj = fnDagNode.child(i);
-      MFnDagNode fnChild(obj);
-      if (fnChild.typeName() == "AL_usdmaya_ProxyShape")
-      {
-        MGlobal::unselectByName(fnParent.name().asChar());
-        MGlobal::unselectByName(fnChild.name().asChar());
-      }
-    }
-  }
-
-  //Reset selection list to new list without AL-usdmaya_Transfroms
-  MGlobal::getActiveSelectionList(selected);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
