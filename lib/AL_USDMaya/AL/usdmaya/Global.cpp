@@ -1,3 +1,6 @@
+
+#include<maya/MFnDagNode.h>
+
 //
 // Copyright 2017 Animal Logic
 //
@@ -97,6 +100,55 @@ maya::CallbackId Global::m_postSave;
 maya::CallbackId Global::m_preRead;
 maya::CallbackId Global::m_postRead;
 maya::CallbackId Global::m_fileNew;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+//class of MObjects
+MSelectionList selected;
+
+static void storeSelection()
+{
+  MGlobal::displayInfo("storeSelection()");
+  //set "selected" to the current selection list
+  MGlobal::getActiveSelectionList(selected);
+  for( int i=0; i<selected.length(); ++i )
+  {
+    MObject obj;
+    selected.getDependNode(i,obj);
+    MFnDependencyNode fnParent(obj);
+    // Remove if type is AL_usdmaya_Transform
+    if (fnParent.typeName() == "AL_usdmaya_Transform")
+    {
+      MGlobal::unselectByName(fnParent.name().asChar());
+    }
+    MFnDagNode fnDagNode(obj);
+    // Unselect nodes which have AL_usdmaya_ProxyShape as a child
+    for( int i=0; i!=fnDagNode.childCount(); ++i ) {
+      MObject obj = fnDagNode.child(i);
+      MFnDagNode fnChild(obj);
+      if (fnChild.typeName() == "AL_usdmaya_ProxyShape")
+      {
+        MGlobal::unselectByName(fnParent.name().asChar());
+        MGlobal::unselectByName(fnChild.name().asChar());
+      }
+    }
+  }
+  //Reset selection list after removal of AL proxies
+  MGlobal::getActiveSelectionList(selected);
+}
+
+static void restoreSelection()
+{
+  MGlobal::displayInfo("restoreSelection()");
+  // iterate through the list of items set by storeSelection()
+  for( int i=0; i<selected.length(); ++i )
+  {
+    MObject obj;
+    selected.getDependNode(i,obj);
+    MFnDependencyNode fn(obj);
+    MGlobal::selectByName(fn.name().asChar());
+  }
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 static void onFileNew(void*)
@@ -236,6 +288,11 @@ static void _preFileSave()
   // Ideally we don't want these transient nodes to be stored in the Maya file, so make sure we unselect prior to a file
   // save (which should call another set of callbacks and delete those transient nodes. This should leave us with just
   // those AL::usdmaya::nodes::Transform nodes that are created because they are required, or have been requested).
+
+  // Selection will be restored to the selection prior to the clearing in the post save.
+
+  storeSelection();
+
   MGlobal::clearSelectionList();
 
   nodes::ProxyShape::serializeAll();
@@ -281,6 +338,8 @@ static void postFileSave(void*)
   {
     AL_MAYA_CHECK_ERROR2(layerManager->clearSerialisationAttributes(), "postFileSave");
   }
+  // Restore selection cleared by _preFileSave()
+  restoreSelection();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -327,4 +386,3 @@ void Global::onPluginUnload()
 } // usdmaya
 } // al
 //----------------------------------------------------------------------------------------------------------------------
-
