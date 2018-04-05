@@ -111,13 +111,10 @@ static void storeSelection()
   MGlobal::displayInfo("storeSelection()");
   //set "selected" to the current selection list
   MGlobal::getActiveSelectionList(selected);
-  // Iterate through selection list, unselecting AL_usdmaya_Transforms
   for( int i=0; i<selected.length(); ++i )
   {
     MObject obj;
-    // returns the i'th selected dependency node
     selected.getDependNode(i,obj);
-    // Attach a function set to the selected object
     MFnDependencyNode fnParent(obj);
     // Remove if type is AL_usdmaya_Transform
     if (fnParent.typeName() == "AL_usdmaya_Transform")
@@ -136,7 +133,7 @@ static void storeSelection()
       }
     }
   }
-  //Reset selection list to new list without AL-usdmaya_Transfroms
+  //Reset selection list after removal of AL proxies
   MGlobal::getActiveSelectionList(selected);
 }
 
@@ -147,13 +144,8 @@ static void restoreSelection()
   for( int i=0; i<selected.length(); ++i )
   {
     MObject obj;
-    // returns the i'th selected dependency node
     selected.getDependNode(i,obj);
-    // Attach a function set to the selected object
     MFnDependencyNode fn(obj);
-    // write the object name to the script editor
-    MGlobal::displayInfo( fn.name() );
-    MGlobal::displayInfo( fn.typeName() );
     MGlobal::selectByName(fn.name().asChar());
   }
 }
