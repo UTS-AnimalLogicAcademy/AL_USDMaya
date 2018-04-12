@@ -70,6 +70,11 @@ public:
     /// UsdPrim.
     static const bool IsTyped = false;
 
+    /// Compile-time constant indicating whether or not this class represents a 
+    /// multiple-apply API schema. Mutiple-apply API schemas can be applied 
+    /// to the same prim multiple times with different instance names. 
+    static const bool IsMultipleApply = false;
+
     /// Construct a AL_usd_ModelAPI on UsdPrim \p prim .
     /// Equivalent to AL_usd_ModelAPI::Get(prim.GetStage(), prim.GetPath())
     /// for a \em valid \p prim, but will not immediately throw an error for
@@ -111,6 +116,15 @@ public:
     static AL_usd_ModelAPI
     Get(const UsdStagePtr &stage, const SdfPath &path);
 
+    /// Mark this schema class as applied to the prim at \p path in the 
+    /// current EditTarget. This information is stored in the apiSchemas
+    /// metadata on prims.  
+    ///
+    /// \sa UsdPrim::GetAppliedSchemas()
+    ///
+    AL_USDMAYASCHEMAS_API
+    static AL_usd_ModelAPI 
+    Apply(const UsdPrim &prim);
 
 private:
     // needs to invoke _GetStaticTfType.
