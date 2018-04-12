@@ -24,6 +24,7 @@
 #include "./ModelAPI.h"
 #include "pxr/usd/usd/schemaRegistry.h"
 #include "pxr/usd/usd/typed.h"
+#include "pxr/usd/usd/tokens.h"
 
 #include "pxr/usd/sdf/types.h"
 #include "pxr/usd/sdf/assetPath.h"
@@ -37,6 +38,11 @@ TF_REGISTRY_FUNCTION(TfType)
         TfType::Bases< UsdModelAPI > >();
     
 }
+
+TF_DEFINE_PRIVATE_TOKENS(
+    _schemaTokens,
+    (ALModelAPI)
+);
 
 /* virtual */
 AL_usd_ModelAPI::~AL_usd_ModelAPI()
@@ -54,6 +60,13 @@ AL_usd_ModelAPI::Get(const UsdStagePtr &stage, const SdfPath &path)
     return AL_usd_ModelAPI(stage->GetPrimAtPath(path));
 }
 
+/* static */
+AL_usd_ModelAPI
+AL_usd_ModelAPI::Apply(const UsdPrim &prim)
+{
+    return UsdAPISchemaBase::_ApplyAPISchema<AL_usd_ModelAPI>(
+            prim, _schemaTokens->ALModelAPI);
+}
 
 /* static */
 const TfType &
