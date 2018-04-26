@@ -33,6 +33,7 @@
 #include "maya/MGlobal.h"
 #include "maya/MFnDependencyNode.h"
 #include "maya/MItDependencyNodes.h"
+#include "maya/MFnDagNode.h"
 
 #include <iostream>
 
@@ -63,7 +64,7 @@ static const char* const eventTypeStrings[] =
 
 //----------------------------------------------------------------------------------------------------------------------
 class MayaEventSystemBinding
-  : public maya::EventSystemBinding
+  : public AL::event::EventSystemBinding
 {
 public:
 
@@ -94,11 +95,61 @@ public:
 static MayaEventSystemBinding g_eventSystem;
 
 //----------------------------------------------------------------------------------------------------------------------
-maya::CallbackId Global::m_preSave;
-maya::CallbackId Global::m_postSave;
-maya::CallbackId Global::m_preRead;
-maya::CallbackId Global::m_postRead;
-maya::CallbackId Global::m_fileNew;
+AL::event::CallbackId Global::m_preSave;
+AL::event::CallbackId Global::m_postSave;
+AL::event::CallbackId Global::m_preRead;
+AL::event::CallbackId Global::m_postRead;
+AL::event::CallbackId Global::m_fileNew;
+
+//----------------------------------------------------------------------------------------------------------------------
+//class of MObjects
+MSelectionList selected;
+
+//Store the current selection list, but dont store AL_USD proxies
+static void storeSelection()
+{
+  MGlobal::displayInfo("storeSelection()");
+  //set "selected" to the current selection list
+  MGlobal::getActiveSelectionList(selected);
+  for( int i=0; i<selected.length(); ++i )
+  {
+    MObject obj;
+    selected.getDependNode(i,obj);
+    MFnDependencyNode fnParent(obj);
+    // Remove if type is AL_usdmaya_Transform
+    if (fnParent.typeName() == "AL_usdmaya_Transform")
+    {
+      MGlobal::unselectByName(fnParent.name().asChar());
+    }
+    MFnDagNode fnDagNode(obj);
+    // Unselect nodes which have AL_usdmaya_ProxyShape as a child
+    for( int i=0; i!=fnDagNode.childCount(); ++i ) {
+      MObject obj = fnDagNode.child(i);
+      MFnDagNode fnChild(obj);
+      if (fnChild.typeName() == "AL_usdmaya_ProxyShape")
+      {
+        MGlobal::unselectByName(fnParent.name().asChar());
+        MGlobal::unselectByName(fnChild.name().asChar());
+      }
+    }
+  }
+  //Reset selection list after removal of AL proxies
+  MGlobal::getActiveSelectionList(selected);
+}
+
+//Reselect the selection stored in storeSelection()
+static void restoreSelection()
+{
+  MGlobal::displayInfo("restoreSelection()");
+  // iterate through the list of items set by storeSelection()
+  for( int i=0; i<selected.length(); ++i )
+  {
+    MObject obj;
+    selected.getDependNode(i,obj);
+    MFnDependencyNode fn(obj);
+    MGlobal::selectByName(fn.name().asChar());
+  }
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -372,11 +423,11 @@ void Global::onPluginLoad()
 {
   TF_DEBUG(ALUSDMAYA_EVENTS).Msg("Registering callbacks\n");
 
-  maya::EventScheduler::initScheduler(&g_eventSystem);
-  auto ptr = new maya::MayaEventHandler(&maya::EventScheduler::getScheduler(), maya::kMayaEventType);
-  new maya::MayaEventManager(ptr);
+  AL::event::EventScheduler::initScheduler(&g_eventSystem);
+  auto ptr = new AL::maya::event::MayaEventHandler(&AL::event::EventScheduler::getScheduler(), AL::event::kMayaEventType);
+  new AL::maya::event::MayaEventManager(ptr);
 
-  auto& manager = maya::MayaEventManager::instance();
+  auto& manager = AL::maya::event::MayaEventManager::instance();
   m_fileNew = manager.registerCallback(onFileNew, "AfterNew", "usdmaya_onFileNew", 0x1000);
   m_preSave = manager.registerCallback(preFileSave, "BeforeSave", "usdmaya_preFileSave", 0x1000);
   m_postSave = manager.registerCallback(postFileSave, "AfterSave", "usdmaya_postFileSave", 0x1000);
@@ -395,7 +446,7 @@ void Global::onPluginLoad()
 void Global::onPluginUnload()
 {
   TF_DEBUG(ALUSDMAYA_EVENTS).Msg("Removing callbacks\n");
-  auto& manager = maya::MayaEventManager::instance();
+  auto& manager = AL::maya::event::MayaEventManager::instance();
   manager.unregisterCallback(m_fileNew);
   manager.unregisterCallback(m_preSave);
   manager.unregisterCallback(m_postSave);
@@ -403,8 +454,8 @@ void Global::onPluginUnload()
   manager.unregisterCallback(m_postRead);
   StageCache::removeCallbacks();
 
-  maya::MayaEventManager::freeInstance();
-  maya::EventScheduler::freeScheduler();
+  AL::maya::event::MayaEventManager::freeInstance();
+  AL::event::EventScheduler::freeScheduler();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
